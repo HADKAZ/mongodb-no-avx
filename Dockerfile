@@ -1,14 +1,15 @@
 # MongoDB without AVX for use with Omada Controller
 # Based on https://github.com/alanedwardes/mongodb-without-avx
-# Updated for MongoDB 9.x with SCons build system
+# Updated for MongoDB 9.x with the Bazel build system
 
 FROM debian:12 AS build
 
-# Install build dependencies for MongoDB 7.x with SCons
+# Install build dependencies for MongoDB with Bazel
 RUN apt-get update -y && apt-get install -y \
         build-essential \
         libcurl4-openssl-dev \
         liblzma-dev \
+        libncurses6 \
         libssl-dev \
         python-dev-is-python3 \
         python3-pip \
@@ -29,51 +30,30 @@ RUN mkdir /src && \
 
 WORKDIR /src
 
-# Apply the no-AVX patch to disable sandybridge/AVX optimizations
-# The patch modifies SConstruct to remove sandybridge from the default
-# experimental optimizations, so MongoDB uses a generic x86-64 baseline
+# Apply the no-AVX patch (single unified diff, see no_avx_patch.diff):
+# 1. Toolchain: -march=sandybridge -> -march=nehalem (no AVX)
+# 2. mozjs: drop -mavx2 and SIMD_avx2.cpp from the Bazel build
+# 3. mozjs: SIMD.cpp never reports AVX2 support (avoids SIGILL on non-AVX2 CPUs)
 COPY ./no_avx_patch.diff /no_avx_patch.diff
 RUN patch -p1 < /no_avx_patch.diff
 
-# Apply mozjs (SpiderMonkey JS engine) patch to remove AVX2 requirement
-# This patch:
-# 1. Removes -mavx2 compiler flag from mozjs SConscript
-# 2. Removes SIMD_avx2.cpp from the build (keeps only SSE.cpp)
-# 3. Disables AVX2 support check in SIMD.cpp
-# Without this, mongod crashes with SIGILL (exit code 132) on non-AVX2 CPUs
-# Patch from: https://github.com/GermanAizek/mongodb-without-avx/issues/16
-COPY ./mozjs-noavx.patch /mozjs-noavx.patch
-RUN patch -p1 < /mozjs-noavx.patch
-
 ARG NUM_JOBS=
 
-# Install Python build dependencies
-# MongoDB 7.x requires specific Python packages for the SCons build
-RUN export GIT_PYTHON_REFRESH=quiet && \
-    python3 -m pip install requirements_parser --break-system-packages && \
-    python3 -m pip install -r etc/pip/compile-requirements.txt --break-system-packages
-
-# Build MongoDB using SCons
-# --release: Build release binaries (optimized)
-# --disable-warnings-as-errors: Ignore compiler warnings that would fail build
-# install-mongod: Build only mongod (server) - lighter than install-devcore
-# install-mongos: Build mongos (router) for sharding support
-RUN if [ -n "${NUM_JOBS}" ] && [ "${NUM_JOBS}" -gt 0 ]; then \
-        export JOBS_ARG="-j ${NUM_JOBS}"; \
+# Install Bazel (bazelisk, pinned by .bazelversion) and build mongod + mongos
+# install-core: only mongod and mongos
+RUN python3 buildscripts/install_bazel.py && \
+    export PATH="$HOME/.local/bin:$PATH" && \
+    if [ -n "${NUM_JOBS}" ] && [ "${NUM_JOBS}" -gt 0 ]; then \
+        export JOBS_ARG="--jobs=${NUM_JOBS}"; \
     fi && \
-    python3 buildscripts/scons.py install-mongod install-mongos \
-        MONGO_VERSION="${MONGO_VERSION}" \
-        --release \
-        --disable-warnings-as-errors \
+    bazel build install-core \
+        --disable_warnings_as_errors=True \
         ${JOBS_ARG} && \
-    mv build/install /install
+    cp -rL bazel-bin/install /install
 
 # Strip debug symbols to reduce binary size significantly
 RUN strip --strip-debug /install/bin/mongod && \
     strip --strip-debug /install/bin/mongos
-
-# Clean up build artifacts to reduce layer size
-RUN rm -rf build
 
 # Final image
 FROM debian:12-slim
