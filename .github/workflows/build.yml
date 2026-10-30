@@ -29,21 +29,12 @@ jobs:
       packages: write
 
     steps:
-      - name: Backup Docker data
-        run: |
-          sudo mkdir -p /tmp/docker-backup
-          sudo rsync -aPq /var/lib/docker/ /tmp/docker-backup/
-
-      - name: Free Disk Space and Merge Disks
+      - name: Free Disk Space
         uses: fenio/gh-rmrf@v1
         with:
-          merge-disks: 'true'
-          mount-path: '/var/lib/docker/'
-
-      - name: Restore Docker data
-        run: |
-          sudo rsync -aPq /tmp/docker-backup/ /var/lib/docker/
-          sudo rm -rf /tmp/docker-backup
+          remove-hostedtoolcache: 'true'
+          remove-docker-images: 'true'
+          nuke: 'true'
 
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -94,21 +85,12 @@ jobs:
       packages: write
 
     steps:
-      - name: Backup Docker data
-        run: |
-          sudo mkdir -p /tmp/docker-backup
-          sudo rsync -aPq /var/lib/docker/ /tmp/docker-backup/
-
-      - name: Free Disk Space and Merge Disks
+      - name: Free Disk Space
         uses: fenio/gh-rmrf@v1
         with:
-          merge-disks: 'true'
-          mount-path: '/var/lib/docker/'
-
-      - name: Restore Docker data
-        run: |
-          sudo rsync -aPq /tmp/docker-backup/ /var/lib/docker/
-          sudo rm -rf /tmp/docker-backup
+          remove-hostedtoolcache: 'true'
+          remove-docker-images: 'true'
+          nuke: 'true'
 
       - name: Checkout repository
         uses: actions/checkout@v4
