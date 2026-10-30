@@ -4,7 +4,7 @@
 services:
   mongodb:
     # Use pre-built image from GHCR
-    image: ghcr.io/fenio/mongodb-no-avx:8.0.17
+    image: ghcr.io/hadkaz/mongodb-no-avx:9.0.4
     # Or build locally (uncomment below, comment out image above)
     # build:
     #   context: .

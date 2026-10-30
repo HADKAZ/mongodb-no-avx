@@ -1,6 +1,6 @@
 # MongoDB without AVX for use with Omada Controller
 # Based on https://github.com/alanedwardes/mongodb-without-avx
-# Updated for MongoDB 7.x with SCons build system
+# Updated for MongoDB 9.x with SCons build system
 
 FROM debian:12 AS build
 
@@ -19,7 +19,7 @@ RUN apt-get update -y && apt-get install -y \
         pkg-config \
     && rm -rf /var/lib/apt/lists/*
 
-ARG MONGO_VERSION=7.0.28
+ARG MONGO_VERSION=9.0.4
 
 # Download MongoDB source
 RUN mkdir /src && \
@@ -80,7 +80,7 @@ FROM debian:12-slim
 
 # OCI labels for GitHub Container Registry
 LABEL org.opencontainers.image.source=https://github.com/fenio/mongodb-no-avx
-LABEL org.opencontainers.image.description="MongoDB 7.0 compiled without AVX/AVX2 CPU requirements"
+LABEL org.opencontainers.image.description="MongoDB 9.0 compiled without AVX/AVX2 CPU requirements"
 LABEL org.opencontainers.image.licenses=MIT
 
 # Install runtime dependencies
